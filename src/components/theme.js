@@ -60,6 +60,7 @@ export const H2 = styled.h2`
 
     @media only screen and (min-width: ${Theme.breakLarge}) {
         font-size: 1.7rem;
+        line-height: 2rem;
     }
 `
 export const Subheader = styled.span`

@@ -54,7 +54,7 @@ const Intro = () => (
         <Subheader>This is me</Subheader>
         <H1>Hi! I'm Jesper Källgård, a UX Designer determied to create great digital experiences.</H1>
 
-        <Button href="#">Contact me on LinkeIn</Button>
+        <Button href="https://www.linkedin.com/in/jesperkallgard/">Contact me on LinkeIn</Button>
 
 
     </section>
