@@ -1,0 +1,32 @@
+content:
+  - client:
+      title: Husqvarna
+      img: /clients/husqvarna.png
+  - client:
+      title: Jordbruksverket
+      img: /clients/jordbruksverket.png
+  - client:
+      title: Friskis
+      img: /clients/friskis.png
+  - client:
+      title: Fagerhult
+      img: /clients/fagerhult.png
+  - client:
+      title: Skola24
+      img: /clients/skola24.png
+  - client:
+      title: Orkla
+      img: /clients/orkla.png
+  - client:
+      title: Linköpings universitet
+      img: /clients/liu.png
+  - client:
+      title: Svedbergs
+      img: /clients/svedbergs.png
+  - client:
+      title: Jordan
+      img: /clients/jordan.png
+  - client:
+      title: Crescent
+      img: /clients/crescent.png
+    

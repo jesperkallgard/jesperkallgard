@@ -1,0 +1,71 @@
+content: 
+  - step:
+      title: Discover
+      skills:
+        - skill:
+            title: Impact map
+            level: 5
+        - skill:
+            title: User Journey 
+            level: 4
+        - skill:
+            title: User Tests
+            level: 4
+        - skill:
+            title: Workshop
+            level: 5
+  - step:
+      title: Define
+      skills:
+        - skill:
+            title: Strategy
+            level: 4
+        - skill:
+            title: Concept
+            level: 5
+        - skill:
+            title: Information strucutre
+            level: 3
+  - step:
+      title: Design
+      skills: 
+        - skill:
+            title: Wireframing
+            level: 4
+        - skill:
+            title: Interface design
+            level: 3
+        - skill:
+            title: Prototyping (POC)
+            level: 4
+        - skill:
+            title: User testning
+            level: 4
+  - step:
+      title: Develop
+      skills: 
+        - skill:
+            title: HTML / CSS
+            level: 4
+        - skill:
+            title: JS / Angular
+            level: 3
+        - skill:
+            title: PHP
+            level: 2
+        - skill:
+            title: ASP .NET
+            level: 1
+        - skill:
+            title: Quality testing
+            level: 4
+  - step:
+      title: Deliver
+      skills: 
+        - skill:
+            title: Analytics
+            level: 3
+        - skill:
+            title: Goal follow-up
+            level: 3
+
