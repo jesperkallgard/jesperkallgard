@@ -3,6 +3,9 @@ content:
       title: Discover
       skills:
         - skill:
+            title: User research
+            level: 5
+        - skill:
             title: Impact map
             level: 5
         - skill:
@@ -12,7 +15,7 @@ content:
             title: User Tests
             level: 4
         - skill:
-            title: Workshop
+            title: Workshop 
             level: 5
   - step:
       title: Define
@@ -24,7 +27,7 @@ content:
             title: Concept
             level: 5
         - skill:
-            title: Information strucutre
+            title: Information structure
             level: 3
   - step:
       title: Design
