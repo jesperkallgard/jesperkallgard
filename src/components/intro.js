@@ -52,7 +52,7 @@ const Intro = () => (
         </Picture>
 
         <Subheader>This is me</Subheader>
-        <H1>Hi! I'm Jesper Källgård, a UX Designer determied to create great digital experiences.</H1>
+        <H1>Hi! I'm Jesper Källgård, a UX Designer determined to create great digital experiences.</H1>
 
         <Button href="https://www.linkedin.com/in/jesperkallgard/">Contact me on LinkeIn</Button>
 
