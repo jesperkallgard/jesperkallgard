@@ -50,6 +50,7 @@ const TEAMS = [
   { flag: "🇪🇸", name: "Spanien" },
   { flag: "🇮🇹", name: "Italien" },
   { flag: "🇵🇹", name: "Portugal" },
+  { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", name: "England" },
 ]
 
 const formatTime = totalSeconds => {
