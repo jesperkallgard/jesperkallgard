@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import styled, { keyframes, css } from "styled-components"
 import { Theme, H1, Subheader } from "../theme"
 import { generatePuzzle } from "./generator"
+import { sounds, setMuted } from "./sounds"
 
 const MAX_HINTS = 3
 const HINT_COST = 10
 const CORRECT_POINTS = 2
 const WRONG_POINTS = 1
+// Combon dör om det går längre än så här mellan två rätta siffror
+const COMBO_WINDOW_MS = 45000
 
 // Combo: var tredje rätta svar i rad höjer multiplikatorn, max x4
 const comboMultiplier = streak => Math.min(4, 1 + Math.floor(streak / 3))
@@ -37,6 +40,29 @@ const LEVEL_NAMES = [
   "VM-semifinal",
   "VM-FINAL",
 ]
+
+const TEAMS = [
+  { flag: "🇸🇪", name: "Sverige" },
+  { flag: "🇧🇷", name: "Brasilien" },
+  { flag: "🇦🇷", name: "Argentina" },
+  { flag: "🇫🇷", name: "Frankrike" },
+  { flag: "🇩🇪", name: "Tyskland" },
+  { flag: "🇪🇸", name: "Spanien" },
+  { flag: "🇮🇹", name: "Italien" },
+  { flag: "🇵🇹", name: "Portugal" },
+]
+
+const formatTime = totalSeconds => {
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+}
+
+const vibrate = pattern => {
+  if (typeof navigator !== "undefined" && navigator.vibrate) {
+    navigator.vibrate(pattern)
+  }
+}
 
 const Wrapper = styled.section`
   max-width: 560px;
@@ -79,6 +105,43 @@ const LevelButton = styled.button`
   &:hover {
     border-color: ${Theme.accentColor};
     background: #333;
+  }
+`
+
+const TeamRow = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 1rem 0 0.5rem;
+`
+
+const TeamButton = styled.button`
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 0.45rem 0.55rem;
+  background: ${props => (props.active ? "#3d2233" : "#2a2a2a")};
+  border: 2px solid ${props => (props.active ? Theme.accentColor : "#3a3a3a")};
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: ${Theme.accentColor};
+  }
+`
+
+const MuteButton = styled.button`
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: 2px solid #3a3a3a;
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: ${Theme.accentColor};
   }
 `
 
@@ -150,7 +213,8 @@ const Cell = styled.button`
   font-family: ${Theme.fontHeader};
   font-size: clamp(0.9rem, 3.5vw, 1.4rem);
   border: 1px solid #3a3a3a;
-  background: ${props => (props.given ? "#252525" : "#1e1e1e")};
+  background: ${props =>
+    props.peer ? (props.given ? "#2b2b2b" : "#262626") : props.given ? "#252525" : "#1e1e1e"};
   color: ${props =>
     props.given
       ? Theme.colorText
@@ -158,7 +222,7 @@ const Cell = styled.button`
       ? Theme.linkColor
       : Theme.colorHeader};
   font-weight: ${props => (props.given ? 400 : 700)};
-  cursor: ${props => (props.locked ? "default" : "pointer")};
+  cursor: pointer;
   padding: 0;
 
   ${props =>
@@ -170,6 +234,12 @@ const Cell = styled.button`
     props.bottomEdge &&
     css`
       border-bottom: 2px solid ${Theme.accentColor};
+    `}
+  ${props =>
+    props.sameValue &&
+    css`
+      background: #3d2233;
+      color: #fff;
     `}
   ${props =>
     props.selected &&
@@ -240,6 +310,16 @@ const CardText = styled.div`
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
   animation: ${goalPop} 1.2s ease forwards;
+  text-align: center;
+`
+
+const HalftimeText = styled.div`
+  font-family: ${Theme.fontHeader};
+  font-size: clamp(1.8rem, 8vw, 3rem);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 20px ${Theme.accentColor}, 0 4px 12px rgba(0, 0, 0, 0.8);
+  animation: ${goalPop} 2s ease forwards;
 `
 
 const fall = keyframes`
@@ -351,7 +431,7 @@ const WinScreen = styled.div`
     font-size: 4rem;
     color: ${Theme.accentColor};
     font-family: ${Theme.fontHeader};
-    margin: 1rem 0;
+    margin: 0.5rem 0;
   }
 `
 
@@ -360,6 +440,36 @@ const Trophy = styled.div`
   line-height: 1;
   margin-bottom: 1rem;
   animation: ${comboPop} 0.6s ease;
+`
+
+const MatchResult = styled.div`
+  font-family: ${Theme.fontHeader};
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: ${Theme.colorHeader};
+  margin: 0.5rem 0 1rem;
+`
+
+const MatchFacts = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem auto;
+  max-width: 320px;
+  text-align: left;
+  color: ${Theme.colorText};
+  font-size: 0.95rem;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid #2a2a2a;
+
+    span:last-child {
+      color: ${Theme.colorHeader};
+      font-weight: 700;
+    }
+  }
 `
 
 const Loading = styled.p`
@@ -392,6 +502,19 @@ const completesUnit = (board, idx) => {
   return rowFull || colFull || boxFull
 }
 
+const isPeer = (a, b) => {
+  if (a === null || a === b) return false
+  const ra = Math.floor(a / 9)
+  const ca = a % 9
+  const rb = Math.floor(b / 9)
+  const cb = b % 9
+  if (ra === rb || ca === cb) return true
+  return (
+    Math.floor(ra / 3) === Math.floor(rb / 3) &&
+    Math.floor(ca / 3) === Math.floor(cb / 3)
+  )
+}
+
 const SudokuGame = () => {
   const [status, setStatus] = useState("menu") // menu | loading | playing | won
   const [level, setLevel] = useState(null)
@@ -404,25 +527,55 @@ const SudokuGame = () => {
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [hintsLeft, setHintsLeft] = useState(MAX_HINTS)
-  // Påskägg
-  const [overlay, setOverlay] = useState(null) // {kind: 'goal'|'yellow'|'red'|'var', id, text}
+  // Påskägg och spelkänsla
+  const [overlay, setOverlay] = useState(null) // {kind, id, text}
   const [goalCount, setGoalCount] = useState(0)
   const [wrongInARow, setWrongInARow] = useState(0)
   const [titleClicks, setTitleClicks] = useState(0)
   const [secretRain, setSecretRain] = useState(false)
+  const [muted, setMutedState] = useState(false)
+  const [team, setTeam] = useState(0)
+  const [opponent, setOpponent] = useState(1)
+  const [seconds, setSeconds] = useState(0)
+  const [halfDone, setHalfDone] = useState(false)
+  const [highlightValue, setHighlightValue] = useState(null)
+  const [stats, setStats] = useState({ wrong: 0, hattricks: 0, yellow: 0, red: 0 })
+  const [timeBonus, setTimeBonus] = useState(0)
+  const lastCorrectAt = useRef(0)
+
+  // Ljudinställningen sparas mellan besök
+  useEffect(() => {
+    const saved = window.localStorage.getItem("sudoku-muted") === "1"
+    setMutedState(saved)
+    setMuted(saved)
+  }, [])
+
+  const toggleMute = () => {
+    const next = !muted
+    setMutedState(next)
+    setMuted(next)
+    window.localStorage.setItem("sudoku-muted", next ? "1" : "0")
+  }
+
+  // Matchklockan tickar medan man spelar
+  useEffect(() => {
+    if (status !== "playing") return
+    const timer = setInterval(() => setSeconds(s => s + 1), 1000)
+    return () => clearInterval(timer)
+  }, [status])
 
   const showOverlay = (kind, text, duration = 1400) => {
-    const id = Date.now()
+    const id = Date.now() + Math.random()
     setOverlay({ kind, text, id })
-    setTimeout(
-      () => setOverlay(o => (o && o.id === id ? null : o)),
-      duration
-    )
+    setTimeout(() => setOverlay(o => (o && o.id === id ? null : o)), duration)
   }
 
   const startGame = chosenLevel => {
     setStatus("loading")
     setLevel(chosenLevel)
+    // Slumpa fram en motståndare som inte är ens eget lag
+    const others = TEAMS.map((_, i) => i).filter(i => i !== team)
+    setOpponent(others[Math.floor(Math.random() * others.length)])
     // Låt laddningstexten hinna renderas innan generatorn kör
     setTimeout(() => {
       const { puzzle: p, solution: s } = generatePuzzle(chosenLevel)
@@ -438,8 +591,25 @@ const SudokuGame = () => {
       setOverlay(null)
       setGoalCount(0)
       setWrongInARow(0)
+      setSeconds(0)
+      setHalfDone(false)
+      setHighlightValue(null)
+      setStats({ wrong: 0, hattricks: 0, yellow: 0, red: 0 })
+      setTimeBonus(0)
+      lastCorrectAt.current = 0
       setStatus("playing")
     }, 50)
+  }
+
+  const finishGame = finalLevel => {
+    // Tidsbonus: klara matchen före "full tid" för nivån
+    const parSeconds = 180 + finalLevel * 60
+    const bonus = Math.max(0, Math.floor((parSeconds - seconds) / 10))
+    setTimeBonus(bonus)
+    setScore(s => s + bonus)
+    setStatus("won")
+    sounds.win()
+    vibrate([80, 60, 80, 60, 200])
   }
 
   const placeNumber = useCallback(
@@ -450,17 +620,46 @@ const SudokuGame = () => {
       if (solution[selected] === value) {
         const newBoard = board.slice()
         newBoard[selected] = value
-        const newStreak = streak + 1
+        // Combon kräver att förra rätta siffran sattes nyligen
+        const now = Date.now()
+        const fresh =
+          streak === 0 || now - lastCorrectAt.current <= COMBO_WINDOW_MS
+        const effectiveStreak = fresh ? streak : 0
+        const newStreak = effectiveStreak + 1
+        lastCorrectAt.current = now
+
         setBoard(newBoard)
         setStreak(newStreak)
-        setScore(s => s + CORRECT_POINTS * comboMultiplier(streak))
+        setScore(s => s + CORRECT_POINTS * comboMultiplier(effectiveStreak))
         setSelected(null)
         setWrongInARow(0)
+        if (newStreak > 0 && newStreak % 3 === 0) {
+          setStats(st => ({ ...st, hattricks: st.hattricks + 1 }))
+        }
+
         if (newBoard.indexOf(0) === -1) {
-          setStatus("won")
-        } else if (completesUnit(newBoard, selected)) {
+          finishGame(level)
+          return
+        }
+
+        if (completesUnit(newBoard, selected)) {
           showOverlay("goal", GOAL_SHOUTS[goalCount % GOAL_SHOUTS.length])
           setGoalCount(g => g + 1)
+          sounds.goal()
+          vibrate([60, 40, 120])
+        } else {
+          sounds.correct()
+        }
+
+        // Halvlek när hälften av de tomma rutorna är ifyllda
+        const totalEmpty = puzzle.filter(v => v === 0).length
+        const leftEmpty = newBoard.filter(v => v === 0).length
+        if (!halfDone && leftEmpty <= totalEmpty / 2) {
+          setHalfDone(true)
+          setTimeout(() => {
+            showOverlay("halftime", "", 2000)
+            sounds.halftime()
+          }, 900)
         }
       } else {
         setScore(s => s - WRONG_POINTS)
@@ -469,14 +668,17 @@ const SudokuGame = () => {
         setTimeout(() => setErrorCell(null), 350)
         const newWrong = wrongInARow + 1
         setWrongInARow(newWrong)
+        sounds.card()
         if (newWrong === 1) {
           showOverlay("yellow", "Gult kort av domaren!", 1200)
+          setStats(st => ({ ...st, wrong: st.wrong + 1, yellow: st.yellow + 1 }))
         } else {
           showOverlay("red", "Rött kort! Men du får spela vidare 😄", 1400)
+          setStats(st => ({ ...st, wrong: st.wrong + 1, red: st.red + 1 }))
         }
       }
     },
-    [status, selected, board, solution, streak, goalCount, wrongInARow]
+    [status, selected, board, solution, streak, goalCount, wrongInARow, puzzle, halfDone, level, seconds]
   )
 
   const useHint = useCallback(() => {
@@ -501,17 +703,21 @@ const SudokuGame = () => {
     setSelected(null)
     setWrongInARow(0)
     if (newBoard.indexOf(0) === -1) {
-      setStatus("won")
+      finishGame(level)
     } else {
       showOverlay("var", "VAR har kollat: siffran godkänd! 📺", 1400)
+      sounds.varCheck()
     }
-  }, [status, hintsLeft, selected, board, solution])
+  }, [status, hintsLeft, selected, board, solution, level, seconds])
 
   useEffect(() => {
     const onKeyDown = e => {
       if (status !== "playing") return
       if (e.key >= "1" && e.key <= "9") placeNumber(Number(e.key))
-      if (e.key === "Escape") setSelected(null)
+      if (e.key === "Escape") {
+        setSelected(null)
+        setHighlightValue(null)
+      }
       if (selected !== null) {
         if (e.key === "ArrowLeft") setSelected(s => Math.max(0, s - 1))
         if (e.key === "ArrowRight") setSelected(s => Math.min(80, s + 1))
@@ -530,7 +736,19 @@ const SudokuGame = () => {
     if (clicks >= 5) {
       setTitleClicks(0)
       setSecretRain(true)
+      sounds.rain()
       setTimeout(() => setSecretRain(false), 4200)
+    }
+  }
+
+  const onCellClick = i => {
+    if (board[i] === 0) {
+      setSelected(i)
+      setHighlightValue(null)
+    } else {
+      // Klick på en ifylld siffra tänder alla likadana
+      setSelected(null)
+      setHighlightValue(v => (v === board[i] ? null : board[i]))
     }
   }
 
@@ -541,6 +759,8 @@ const SudokuGame = () => {
   }, {})
 
   const multiplier = comboMultiplier(streak)
+  const myTeam = TEAMS[team]
+  const oppTeam = TEAMS[opponent]
 
   if (status === "menu") {
     return (
@@ -555,6 +775,29 @@ const SudokuGame = () => {
           >
             Sudoku
           </H1>
+          <p style={{ color: Theme.colorText, marginBottom: 0 }}>
+            Välj ditt landslag:
+          </p>
+          <TeamRow>
+            {TEAMS.map((t, i) => (
+              <TeamButton
+                key={t.name}
+                active={team === i}
+                onClick={() => setTeam(i)}
+                title={t.name}
+                aria-label={`Spela som ${t.name}`}
+              >
+                {t.flag}
+              </TeamButton>
+            ))}
+            <MuteButton
+              onClick={toggleMute}
+              title={muted ? "Slå på ljudet" : "Stäng av ljudet"}
+              aria-label={muted ? "Slå på ljudet" : "Stäng av ljudet"}
+            >
+              {muted ? "🔇" : "🔊"}
+            </MuteButton>
+          </TeamRow>
           <p style={{ color: Theme.colorText }}>
             Välj svårighetsgrad – 1 är lättast, 10 är svårast.
           </p>
@@ -569,7 +812,7 @@ const SudokuGame = () => {
           <p style={{ color: Theme.colorText, fontSize: "0.85rem" }}>
             Rätt siffra +{CORRECT_POINTS} poäng · Fel siffra −{WRONG_POINTS}{" "}
             poäng · VAR-hjälp −{HINT_COST} poäng (max {MAX_HINTS} ggr) · Combo
-            ger upp till x4
+            ger upp till x4 · Snabb seger ger tidsbonus
           </p>
         </StartScreen>
       </Wrapper>
@@ -585,19 +828,55 @@ const SudokuGame = () => {
   }
 
   if (status === "won") {
+    const goalsFor = Math.max(goalCount + 1, stats.red + 1)
     return (
       <Wrapper>
         <FootballRain loop />
         <WinScreen>
           <Trophy>🏆</Trophy>
-          <Subheader>{LEVEL_NAMES[level - 1]} avklarad – nivå {level}</Subheader>
+          <Subheader>
+            {LEVEL_NAMES[level - 1]} avklarad – nivå {level}
+          </Subheader>
           <H1 style={{ textAlign: "center", maxWidth: "none" }}>
-            VÄRLDSMÄSTARE!
+            {myTeam.name.toUpperCase()} ÄR VÄRLDSMÄSTARE!
           </H1>
-          <p style={{ color: Theme.colorText }}>
+          <MatchResult>
+            {myTeam.flag} {goalsFor} – {stats.red} {oppTeam.flag}
+          </MatchResult>
+          <p style={{ color: Theme.colorText, margin: 0 }}>
             Domaren blåser av matchen – din slutpoäng
           </p>
           <strong>{score}</strong>
+          <MatchFacts>
+            <li>
+              <span>⏱ Speltid</span>
+              <span>{formatTime(seconds)}</span>
+            </li>
+            <li>
+              <span>⚡ Tidsbonus</span>
+              <span>+{timeBonus}</span>
+            </li>
+            <li>
+              <span>⚽ Hattricks</span>
+              <span>{stats.hattricks}</span>
+            </li>
+            <li>
+              <span>🎯 Felskott</span>
+              <span>{stats.wrong}</span>
+            </li>
+            <li>
+              <span>🟨 Gula kort</span>
+              <span>{stats.yellow}</span>
+            </li>
+            <li>
+              <span>🟥 Röda kort</span>
+              <span>{stats.red}</span>
+            </li>
+            <li>
+              <span>📊 Bollinnehav</span>
+              <span>100 %</span>
+            </li>
+          </MatchFacts>
           <ActionRow>
             <ActionButton primary onClick={() => startGame(level)}>
               Returmöte ⚽
@@ -619,11 +898,19 @@ const SudokuGame = () => {
           Poäng <strong>{score}</strong>
         </Stat>
         <Stat>
-          Nivå <strong>{level}</strong>
+          {myTeam.flag} mot {oppTeam.flag}
+          <strong>⏱ {formatTime(seconds)}</strong>
         </Stat>
         <Stat>
           VAR kvar <strong>{hintsLeft}</strong>
         </Stat>
+        <MuteButton
+          onClick={toggleMute}
+          title={muted ? "Slå på ljudet" : "Stäng av ljudet"}
+          aria-label={muted ? "Slå på ljudet" : "Stäng av ljudet"}
+        >
+          {muted ? "🔇" : "🔊"}
+        </MuteButton>
         {multiplier > 1 && (
           <ComboBadge key={streak}>
             {COMBO_LABELS[multiplier]}
@@ -638,18 +925,18 @@ const SudokuGame = () => {
             const col = i % 9
             const row = Math.floor(i / 9)
             const isGiven = puzzle[i] !== 0
-            const isLocked = value !== 0
             return (
               <Cell
                 key={i}
                 given={isGiven}
                 hinted={hinted.includes(i)}
-                locked={isLocked}
                 selected={selected === i}
+                peer={isPeer(selected, i)}
+                sameValue={highlightValue !== null && value === highlightValue}
                 error={errorCell === i}
                 rightEdge={col === 2 || col === 5}
                 bottomEdge={row === 2 || row === 5}
-                onClick={() => !isLocked && setSelected(i)}
+                onClick={() => onCellClick(i)}
                 aria-label={`Rad ${row + 1}, kolumn ${col + 1}${
                   value ? `, värde ${value}` : ", tom"
                 }`}
@@ -676,6 +963,14 @@ const SudokuGame = () => {
           <Overlay key={overlay.id}>
             <CardBig>📺</CardBig>
             <CardText>{overlay.text}</CardText>
+          </Overlay>
+        )}
+        {overlay && overlay.kind === "halftime" && (
+          <Overlay key={overlay.id}>
+            <HalftimeText>HALVLEK</HalftimeText>
+            <CardText>
+              Ställning: {score} poäng efter {formatTime(seconds)}
+            </CardText>
           </Overlay>
         )}
       </BoardWrap>
