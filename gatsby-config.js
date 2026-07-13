@@ -5,6 +5,8 @@
  */
 
 module.exports = {
+  // Används vid publicering på GitHub Pages (gatsby build --prefix-paths)
+  pathPrefix: `/jesperkallgard`,
   siteMetadata: {
     title: `Jesper Källgård – UX Designer`,
     description: `Jesper Källgård a UX Designer based in Jönköping, Sweden.`,

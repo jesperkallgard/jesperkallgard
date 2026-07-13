@@ -1,5 +1,6 @@
 import PropTypes from "prop-types"
 import React from "react"
+import { withPrefix } from "gatsby"
 import styled from 'styled-components';
 import {Theme} from "./theme";
 
@@ -21,8 +22,8 @@ const Logo = styled.a`
 
 const Header = ({ siteTitle }) => (
     <HeaderElm>
-        <Logo id="logo" href="/" title="UX Designer Jesper Källgård">
-            <img src="/logo.svg" alt="Jesper Källgård" />
+        <Logo id="logo" href={withPrefix("/")} title="UX Designer Jesper Källgård">
+            <img src={withPrefix("/logo.svg")} alt="Jesper Källgård" />
         </Logo>
     </HeaderElm>
 )
