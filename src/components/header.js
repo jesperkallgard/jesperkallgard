@@ -22,7 +22,7 @@ const Logo = styled.a`
 const Header = ({ siteTitle }) => (
     <HeaderElm>
         <Logo id="logo" href="/" title="UX Designer Jesper Källgård">
-            <img src="logo.svg" alt="Jesper Källgård" />
+            <img src="/logo.svg" alt="Jesper Källgård" />
         </Logo>
     </HeaderElm>
 )
